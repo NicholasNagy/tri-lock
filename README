@@ -22,3 +22,14 @@ Afterwards enter the following command to build and install slock
 Running slock
 -------------
 Simply invoke the 'slock' command. To get out of it, enter your password.
+
+
+OpenSuse build requirements
+---------------------------
+imlib2-devel
+libXft-devel
+libXinerama-devel
+libXrandr-devel
+libX11-devel? Maybe,  Maybe not
+gcc
+make

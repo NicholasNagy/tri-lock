@@ -50,3 +50,13 @@ static const int blurRadius=10;
 //#define PIXELATION
 /*Set pixelation radius*/
 static const int pixelSize=10;
+
+
+/* Patch: auto-timeout */
+/* should [command] be run only once? */
+static const int runonce = 1;
+/* length of time (seconds) until [command] is executed */
+static const int timeoffset = 30;
+/* command to be run after [timeoffset] seconds has passed */
+static const char *command = "systemctl suspend";
+

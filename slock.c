@@ -28,6 +28,10 @@
 #include "arg.h"
 #include "util.h"
 
+/*POSIX threading for auto-timeout*/
+#include <pthread.h>
+#include <time.h>
+
 char *argv0;
 
 enum {
@@ -198,7 +202,7 @@ drawlogo(Display *dpy, struct lock *lock, int color)
 
 static void
 readpw(Display *dpy, struct xrandr *rr, struct lock **locks, int nscreens,
-       const char *hash)
+       const char *hash, int* timeToLastKeyPress)
 {
 	XRRScreenChangeNotifyEvent *rre;
 	char buf[32], passwd[256], *inputhash;
@@ -214,6 +218,7 @@ readpw(Display *dpy, struct xrandr *rr, struct lock **locks, int nscreens,
 
 	while (running && !XNextEvent(dpy, &ev)) {
 		if (ev.type == KeyPress) {
+			*timeToLastKeyPress = 0;
 			explicit_bzero(&buf, sizeof(buf));
 			num = XLookupString(&ev.xkey, buf, sizeof(buf), &ksym, 0);
 			if (IsKeypadKey(ksym)) {
@@ -286,6 +291,25 @@ readpw(Display *dpy, struct xrandr *rr, struct lock **locks, int nscreens,
 				XRaiseWindow(dpy, locks[screen]->win);
 		}
 	}
+}
+
+void *timeoutCommand(void *args)
+{
+	int* timeToLastKeyPress = (int*) args;
+	int sleeping = 0;
+	while (1) {
+		sleep(1);
+		if (*timeToLastKeyPress > timeoffset && sleeping == 0) {
+			system(command);
+			sleeping = 1;
+		}
+		if (*timeToLastKeyPress < timeoffset && sleeping != 0) {
+			sleeping = 0;
+		}
+//		fprintf(stderr, "Sleeping: %d, timeToLastKeyPress: %d\n", sleeping, *timeToLastKeyPress);
+		*timeToLastKeyPress += 1;
+       }
+       return args;
 }
 
 static struct lock *
@@ -550,8 +574,14 @@ main(int argc, char **argv) {
 		}
 	}
 
+	int* timeToLastKeyPress = (int*) malloc(sizeof(int));
+	*timeToLastKeyPress = 0;
+	/*Start the auto-timeout command in its own thread*/
+        pthread_t thread_id;
+        pthread_create(&thread_id, NULL, timeoutCommand, (void*) timeToLastKeyPress);
+
 	/* everything is now blank. Wait for the correct password */
-	readpw(dpy, &rr, locks, nscreens, hash);
+	readpw(dpy, &rr, locks, nscreens, hash, timeToLastKeyPress);
 
 	for (nlocks = 0, s = 0; s < nscreens; s++) {
 		XFreePixmap(dpy, locks[s]->drawable);
